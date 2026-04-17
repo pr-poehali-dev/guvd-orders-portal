@@ -4,7 +4,7 @@ import Icon from "@/components/ui/icon";
 type Role = "guest" | "employee" | "commander";
 type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet";
 
-const CREST_URL = "https://cdn.poehali.dev/projects/7ad66e5a-3553-47a5-a1f7-b4f6f0ab1d8f/files/dc0c25a7-cfed-4467-83b0-f66fef2203c0.jpg";
+const CREST_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Emblem_of_the_Ministry_of_Internal_Affairs.svg/960px-Emblem_of_the_Ministry_of_Internal_Affairs.svg.png";
 
 const mockOrders = [
   { id: "№ 147", date: "15.04.2026", title: "О проведении плановых учений личного состава", status: "Действующий", priority: "high" },
