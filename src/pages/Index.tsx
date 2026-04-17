@@ -1,9 +1,10 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import OrderGenerator from "@/components/OrderGenerator";
+import WantedList from "@/components/WantedList";
 
 type Role = "guest" | "employee" | "commander";
-type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet" | "generator";
+type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet" | "generator" | "wanted";
 
 const CREST_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Emblem_of_the_Ministry_of_Internal_Affairs.svg/960px-Emblem_of_the_Ministry_of_Internal_Affairs.svg.png";
 
@@ -48,6 +49,7 @@ export default function Index() {
 
   const navItems: { id: Section; label: string; icon: string; restricted?: boolean }[] = [
     { id: "home", label: "Главная", icon: "Home" },
+    { id: "wanted", label: "Розыск", icon: "AlertOctagon" },
     { id: "orders", label: "Приказы", icon: "FileText", restricted: true },
     { id: "employees", label: "Сотрудники", icon: "Users", restricted: true },
     { id: "generator", label: "Генератор приказов", icon: "FilePen", restricted: true },
@@ -367,6 +369,9 @@ export default function Index() {
             </div>
           </div>
         )}
+
+        {/* WANTED */}
+        {section === "wanted" && <WantedList canEdit={role === "employee" || role === "commander"} />}
 
         {/* GENERATOR */}
         {section === "generator" && <OrderGenerator />}
