@@ -192,10 +192,10 @@ export default function OrderGenerator() {
   const [customBody, setCustomBody] = useState("");
 
   // Author / signer
-  const [authorRank, setAuthorRank] = useState("");
-  const [authorName, setAuthorName] = useState("");
-  const [signerRank, setSignerRank] = useState("");
-  const [signerName, setSignerName] = useState("");
+  const [authorRank, setAuthorRank] = useState("Первый заместитель начальника ОМВД по г. Приволжску и Приволжскому району, Полковник полиции");
+  const [authorName, setAuthorName] = useState("Фолсон И.С.");
+  const [signerRank, setSignerRank] = useState("Заместитель Начальника ОМВД по ВС, Полковник внутренней службы");
+  const [signerName, setSignerName] = useState("Носов Д.А.");
 
   const template = TEMPLATES.find((t) => t.id === selectedType)!;
 
