@@ -1,8 +1,9 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import OrderGenerator from "@/components/OrderGenerator";
 
 type Role = "guest" | "employee" | "commander";
-type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet";
+type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet" | "generator";
 
 const CREST_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Emblem_of_the_Ministry_of_Internal_Affairs.svg/960px-Emblem_of_the_Ministry_of_Internal_Affairs.svg.png";
 
@@ -49,6 +50,7 @@ export default function Index() {
     { id: "home", label: "Главная", icon: "Home" },
     { id: "orders", label: "Приказы", icon: "FileText", restricted: true },
     { id: "employees", label: "Сотрудники", icon: "Users", restricted: true },
+    { id: "generator", label: "Генератор приказов", icon: "FilePen", restricted: true },
     { id: "management", label: "Управление", icon: "Settings", restricted: true },
     { id: "documents", label: "Документы", icon: "FolderOpen", restricted: true },
     { id: "contacts", label: "Контакты", icon: "Phone" },
@@ -365,6 +367,9 @@ export default function Index() {
             </div>
           </div>
         )}
+
+        {/* GENERATOR */}
+        {section === "generator" && <OrderGenerator />}
 
         {/* MANAGEMENT */}
         {section === "management" && (
