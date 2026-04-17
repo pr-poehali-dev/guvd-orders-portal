@@ -192,10 +192,10 @@ export default function OrderGenerator() {
   const [customBody, setCustomBody] = useState("");
 
   // Author / signer
-  const [authorRank, setAuthorRank] = useState("Первый заместитель начальника ОМВД по г. Приволжску и Приволжскому району, Полковник полиции");
-  const [authorName, setAuthorName] = useState("Фолсон И.С.");
-  const [signerRank, setSignerRank] = useState("Заместитель Начальника ОМВД по ВС, Полковник внутренней службы");
-  const [signerName, setSignerName] = useState("Носов Д.А.");
+  const [authorRank, setAuthorRank] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [signerRank, setSignerRank] = useState("");
+  const [signerName, setSignerName] = useState("");
 
   const template = TEMPLATES.find((t) => t.id === selectedType)!;
 
@@ -404,7 +404,7 @@ export default function OrderGenerator() {
                 <input
                   value={signerName}
                   onChange={(e) => setSignerName(e.target.value)}
-                  placeholder="Носов Д.А."
+                  placeholder="Ithan_Santoro"
                   className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                 />
               </div>
