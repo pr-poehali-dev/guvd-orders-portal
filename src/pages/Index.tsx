@@ -567,8 +567,22 @@ export default function Index() {
 
       {/* Footer */}
       <footer className="bg-navy mt-auto py-5 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-white/40 text-xs font-ibm">
-          <span>© 2026 ГУВД Провинции · MTA Server 1</span>
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-white/40 text-xs font-ibm">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <span>© 2026 ГУВД Провинции · MTA Server 1</span>
+            <span className="hidden sm:block text-white/20">·</span>
+            <span className="flex items-center gap-1.5">
+              Разработчик:&nbsp;
+              <a
+                href="https://vk.com/id1089780734"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/60 hover:text-gold transition-colors underline-offset-2 hover:underline"
+              >
+                Ethan_Santoro
+              </a>
+            </span>
+          </div>
           <span className="flex items-center gap-1.5">
             <Icon name="Shield" size={12} />
             Официальный внутренний портал
