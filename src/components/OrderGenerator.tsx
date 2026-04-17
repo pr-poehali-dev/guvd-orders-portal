@@ -308,7 +308,7 @@ export default function OrderGenerator() {
                   <input
                     value={empRank}
                     onChange={(e) => setEmpRank(e.target.value)}
-                    placeholder="Курсанта АМВД, Рядового полиции"
+                    placeholder="Звание и должность сотрудника"
                     className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                   />
                 </div>
@@ -317,7 +317,7 @@ export default function OrderGenerator() {
                   <input
                     value={empName}
                     onChange={(e) => setEmpName(e.target.value)}
-                    placeholder="Vladimir_Plehanov"
+                    placeholder="Ethan_Santoro"
                     className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                   />
                 </div>
@@ -377,7 +377,7 @@ export default function OrderGenerator() {
                 <input
                   value={authorRank}
                   onChange={(e) => setAuthorRank(e.target.value)}
-                  placeholder="Первый заместитель начальника ОМВД..., Полковник полиции"
+                  placeholder="Должность Ethan_Santoro, звание"
                   className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                 />
               </div>
@@ -386,7 +386,7 @@ export default function OrderGenerator() {
                 <input
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder="Фолсон И.С."
+                  placeholder="Ethan_Santoro"
                   className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                 />
               </div>
@@ -395,7 +395,7 @@ export default function OrderGenerator() {
                 <input
                   value={signerRank}
                   onChange={(e) => setSignerRank(e.target.value)}
-                  placeholder="Заместитель Начальника ОМВД по ВС, Полковник внутренней службы"
+                  placeholder="Должность подписанта, звание"
                   className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
                 />
               </div>
