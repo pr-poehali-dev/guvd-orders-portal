@@ -16,7 +16,7 @@ const mockOrders = [
   { id: "№ 143", date: "25.03.2026", title: "О реорганизации дорожно-патрульной службы", status: "Архив", priority: "normal" },
 ];
 
-const mockEmployees = [
+const initialEmployees = [
   { id: 1, rank: "Полковник", name: "Александр Кравченко", dept: "Командование", badge: "ГУ-001", status: "online" },
   { id: 2, rank: "Подполковник", name: "Дмитрий Воронов", dept: "Оперативный отдел", badge: "ГУ-008", status: "online" },
   { id: 3, rank: "Майор", name: "Сергей Лисицын", dept: "Патрульная служба", badge: "ГУ-015", status: "offline" },
@@ -24,6 +24,13 @@ const mockEmployees = [
   { id: 5, rank: "Старший лейтенант", name: "Николай Петров", dept: "Патрульная служба", badge: "ГУ-031", status: "offline" },
   { id: 6, rank: "Лейтенант", name: "Андрей Зайцев", dept: "ДПС", badge: "ГУ-044", status: "online" },
 ];
+
+type Employee = { id: number; rank: string; name: string; dept: string; badge: string; status: string };
+
+const emptyEmployee: Omit<Employee, "id"> = { rank: "", name: "", dept: "", badge: "", status: "online" };
+
+const RANKS = ["Рядовой", "Младший сержант", "Сержант", "Старший сержант", "Прапорщик", "Лейтенант", "Старший лейтенант", "Капитан", "Майор", "Подполковник", "Полковник", "Генерал-майор"];
+const DEPTS = ["Командование", "Оперативный отдел", "Патрульная служба", "Следственный отдел", "ДПС", "Дежурная часть", "Кинологический отдел"];
 
 const mockDocuments = [
   { id: 1, title: "Устав ГУВД Провинции", type: "Нормативный акт", date: "01.01.2026", size: "124 КБ" },
@@ -46,6 +53,12 @@ export default function Index() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginRole, setLoginRole] = useState<"employee" | "commander">("employee");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [empFormOpen, setEmpFormOpen] = useState(false);
+  const [editEmp, setEditEmp] = useState<Employee | null>(null);
+  const [empForm, setEmpForm] = useState<Omit<Employee, "id">>(emptyEmployee);
+  const [fireConfirm, setFireConfirm] = useState<Employee | null>(null);
 
   const navItems: { id: Section; label: string; icon: string; restricted?: boolean }[] = [
     { id: "home", label: "Главная", icon: "Home" },
@@ -330,17 +343,20 @@ export default function Index() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="font-oswald text-2xl text-navy font-semibold">Личный состав</h2>
-                <p className="text-muted-foreground text-sm font-ibm">Реестр сотрудников ГУВД Провинции</p>
+                <p className="text-muted-foreground text-sm font-ibm">Реестр сотрудников ГУВД Провинции · {employees.length} чел.</p>
               </div>
               {role === "commander" && (
-                <button className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                <button
+                  onClick={() => { setEditEmp(null); setEmpForm(emptyEmployee); setEmpFormOpen(true); }}
+                  className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded"
+                >
                   <Icon name="UserPlus" size={16} />
                   Принять сотрудника
                 </button>
               )}
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockEmployees.map((emp, i) => (
+              {employees.map((emp, i) => (
                 <div key={emp.id} className={`bg-white rounded-lg border border-border p-4 card-hover animate-slide-up animate-stagger-${Math.min(i + 1, 6)}`}>
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0 border-2 border-navy/20">
@@ -349,7 +365,7 @@ export default function Index() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <h3 className="font-oswald text-navy font-semibold text-sm truncate">{emp.name}</h3>
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${emp.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${emp.status === "online" ? "bg-green-500" : "bg-gray-300"}`} title={emp.status === "online" ? "На службе" : "Не в сети"} />
                       </div>
                       <div className="text-xs text-muted-foreground font-ibm">{emp.rank}</div>
                       <div className="text-xs text-muted-foreground font-ibm mt-0.5">{emp.dept}</div>
@@ -359,14 +375,141 @@ export default function Index() {
                     <span className="text-xs font-oswald text-navy/60 tracking-wide">Жетон: {emp.badge}</span>
                     {role === "commander" && (
                       <div className="flex gap-2">
-                        <button className="text-muted-foreground hover:text-navy transition-colors"><Icon name="Pencil" size={14} /></button>
-                        <button className="text-muted-foreground hover:text-red-500 transition-colors"><Icon name="UserMinus" size={14} /></button>
+                        <button
+                          onClick={() => { setEditEmp(emp); setEmpForm({ rank: emp.rank, name: emp.name, dept: emp.dept, badge: emp.badge, status: emp.status }); setEmpFormOpen(true); }}
+                          className="text-muted-foreground hover:text-navy transition-colors"
+                          title="Редактировать"
+                        >
+                          <Icon name="Pencil" size={14} />
+                        </button>
+                        <button
+                          onClick={() => setFireConfirm(emp)}
+                          className="text-muted-foreground hover:text-red-500 transition-colors"
+                          title="Уволить"
+                        >
+                          <Icon name="UserMinus" size={14} />
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* ADD / EDIT MODAL */}
+            {empFormOpen && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEmpFormOpen(false)}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                  <div className="bg-navy px-5 py-4 flex items-center justify-between">
+                    <span className="font-oswald text-white tracking-wide flex items-center gap-2">
+                      <Icon name={editEmp ? "Pencil" : "UserPlus"} size={16} />
+                      {editEmp ? "Редактировать сотрудника" : "Принять сотрудника"}
+                    </span>
+                    <button onClick={() => setEmpFormOpen(false)} className="text-white/70 hover:text-white"><Icon name="X" size={18} /></button>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Имя / Ник *</label>
+                      <input
+                        value={empForm.name}
+                        onChange={(e) => setEmpForm((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Иван Морозов"
+                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Звание</label>
+                      <select
+                        value={empForm.rank}
+                        onChange={(e) => setEmpForm((p) => ({ ...p, rank: e.target.value }))}
+                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white"
+                      >
+                        <option value="">— Выбрать —</option>
+                        {RANKS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Подразделение</label>
+                      <select
+                        value={empForm.dept}
+                        onChange={(e) => setEmpForm((p) => ({ ...p, dept: e.target.value }))}
+                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white"
+                      >
+                        <option value="">— Выбрать —</option>
+                        {DEPTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Номер жетона</label>
+                      <input
+                        value={empForm.badge}
+                        onChange={(e) => setEmpForm((p) => ({ ...p, badge: e.target.value }))}
+                        placeholder="ГУ-055"
+                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Статус</label>
+                      <div className="flex gap-3">
+                        {(["online", "offline"] as const).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setEmpForm((p) => ({ ...p, status: s }))}
+                            className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-oswald tracking-wide border transition-colors ${empForm.status === s ? "bg-navy text-white border-navy" : "border-border text-muted-foreground hover:border-navy/30"}`}
+                          >
+                            <div className={`w-2 h-2 rounded-full ${s === "online" ? "bg-green-400" : "bg-gray-400"}`} />
+                            {s === "online" ? "На службе" : "Не в сети"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      disabled={!empForm.name.trim()}
+                      onClick={() => {
+                        if (editEmp) {
+                          setEmployees((prev) => prev.map((e) => e.id === editEmp.id ? { ...empForm, id: editEmp.id } : e));
+                        } else {
+                          setEmployees((prev) => [...prev, { ...empForm, id: Date.now() }]);
+                        }
+                        setEmpFormOpen(false);
+                        setEditEmp(null);
+                        setEmpForm(emptyEmployee);
+                      }}
+                      className="w-full bg-navy hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1"
+                    >
+                      {editEmp ? "Сохранить изменения" : "Принять на службу"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FIRE CONFIRM */}
+            {fireConfirm && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setFireConfirm(null)}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <Icon name="UserMinus" size={18} className="text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-oswald text-navy text-lg">Уволить сотрудника?</h3>
+                      <p className="text-sm font-ibm text-muted-foreground">{fireConfirm.rank} {fireConfirm.name}</p>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-sm font-ibm mb-5">Сотрудник будет удалён из реестра личного состава.</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setFireConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
+                    <button
+                      onClick={() => { setEmployees((prev) => prev.filter((e) => e.id !== fireConfirm.id)); setFireConfirm(null); }}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors"
+                    >
+                      Уволить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
