@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "GET employees",
+      "method": "GET",
+      "path": "/?resource=employees",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET orders",
+      "method": "GET",
+      "path": "/?resource=orders",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET reprimands",
+      "method": "GET",
+      "path": "/?resource=reprimands",
+      "expectedStatus": 200
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS employees (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  rank TEXT NOT NULL DEFAULT '',
+  dept TEXT NOT NULL DEFAULT '',
+  badge TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'online',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  order_num TEXT NOT NULL,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Действующий',
+  priority TEXT NOT NULL DEFAULT 'normal',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reprimands (
+  id SERIAL PRIMARY KEY,
+  emp_id INTEGER NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Выговор',
+  reason TEXT NOT NULL,
+  issued_by TEXT NOT NULL DEFAULT '',
+  date TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

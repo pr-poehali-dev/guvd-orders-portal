@@ -1,19 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import OrderGenerator from "@/components/OrderGenerator";
 import WantedList from "@/components/WantedList";
+import { api } from "@/api/guvd";
+import type { Employee as ApiEmployee, Order as ApiOrder, Reprimand as ApiReprimand } from "@/api/guvd";
 
 type Role = "guest" | "employee" | "commander";
 type Section = "home" | "orders" | "employees" | "management" | "documents" | "contacts" | "cabinet" | "generator" | "wanted";
 
 const CREST_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Emblem_of_the_Ministry_of_Internal_Affairs.svg/960px-Emblem_of_the_Ministry_of_Internal_Affairs.svg.png";
 
-type Employee = { id: number; rank: string; name: string; dept: string; badge: string; status: string };
-type Order = { id: string; date: string; title: string; status: string; priority: string };
-type Reprimand = { id: number; empId: number; type: string; reason: string; date: string; issuedBy: string };
+type Employee = ApiEmployee;
+type Order = ApiOrder;
+type Reprimand = ApiReprimand;
 
 const emptyEmployee: Omit<Employee, "id"> = { rank: "", name: "", dept: "", badge: "", status: "online" };
-const emptyOrder: Omit<Order, "id"> = { date: "", title: "", status: "Действующий", priority: "normal" };
+const emptyOrder: Omit<Order, "id" | "order_num"> = { date: "", title: "", status: "Действующий", priority: "normal" };
 
 const RANKS = ["Рядовой", "Младший сержант", "Сержант", "Старший сержант", "Прапорщик", "Лейтенант", "Старший лейтенант", "Капитан", "Майор", "Подполковник", "Полковник", "Генерал-майор"];
 const DEPTS = ["Командование", "Оперативный отдел", "Патрульная служба", "Следственный отдел", "ДПС", "Дежурная часть", "Кинологический отдел"];
@@ -38,6 +40,9 @@ export default function Index() {
   const [loginRole, setLoginRole] = useState<"employee" | "commander">("employee");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Loading
+  const [loading, setLoading] = useState(false);
+
   // Employees state
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empFormOpen, setEmpFormOpen] = useState(false);
@@ -49,18 +54,35 @@ export default function Index() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderFormOpen, setOrderFormOpen] = useState(false);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [orderForm, setOrderForm] = useState<Omit<Order, "id">>(emptyOrder);
+  const [orderForm, setOrderForm] = useState<Omit<Order, "id" | "order_num">>(emptyOrder);
   const [deleteOrderConfirm, setDeleteOrderConfirm] = useState<Order | null>(null);
   const [orderFilter, setOrderFilter] = useState("Все");
 
   // Reprimands state
   const [reprimands, setReprimands] = useState<Reprimand[]>([]);
   const [repFormOpen, setRepFormOpen] = useState(false);
-  const [repForm, setRepForm] = useState({ empId: 0, type: "Выговор", reason: "", issuedBy: "" });
+  const [repForm, setRepForm] = useState({ emp_id: 0, type: "Выговор", reason: "", issued_by: "" });
   const [deleteRepConfirm, setDeleteRepConfirm] = useState<Reprimand | null>(null);
 
   // Management tab
   const [mgmtTab, setMgmtTab] = useState<"employees" | "orders" | "reprimands">("employees");
+
+  // Load data from API on mount
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const [emps, ords, reps] = await Promise.all([
+        api.employees.list(),
+        api.orders.list(),
+        api.reprimands.list(),
+      ]);
+      setEmployees(emps);
+      setOrders(ords);
+      setReprimands(reps);
+      setLoading(false);
+    };
+    load();
+  }, []);
 
   const navItems: { id: Section; label: string; icon: string; restricted?: boolean }[] = [
     { id: "home", label: "Главная", icon: "Home" },
@@ -89,16 +111,15 @@ export default function Index() {
   const repCount = reprimands.length;
 
   // Order helpers
-  const saveOrder = () => {
+  const saveOrder = async () => {
     if (!orderForm.title.trim()) return;
-    const date = orderForm.date || todayStr();
+    const data = { ...orderForm, date: orderForm.date || todayStr() };
     if (editOrder) {
-      setOrders(p => p.map(o => o.id === editOrder.id ? { ...orderForm, date, id: editOrder.id } : o));
+      await api.orders.update(editOrder.id, data);
+      setOrders(p => p.map(o => o.id === editOrder.id ? { ...o, ...data } : o));
     } else {
-      const nextNum = orders.length > 0
-        ? Math.max(...orders.map(o => parseInt(o.id.replace(/\D/g, "")) || 0)) + 1
-        : 100;
-      setOrders(p => [{ ...orderForm, date, id: `№ ${nextNum}` }, ...p]);
+      const res = await api.orders.add(data);
+      setOrders(p => [{ ...data, id: res.id, order_num: res.order_num }, ...p]);
     }
     setOrderFormOpen(false); setEditOrder(null); setOrderForm(emptyOrder);
   };
@@ -112,24 +133,28 @@ export default function Index() {
   });
 
   // Employee helpers
-  const saveEmployee = () => {
+  const saveEmployee = async () => {
     if (!empForm.name.trim()) return;
     if (editEmp) {
+      await api.employees.update(editEmp.id, empForm);
       setEmployees(p => p.map(e => e.id === editEmp.id ? { ...empForm, id: editEmp.id } : e));
     } else {
-      setEmployees(p => [...p, { ...empForm, id: Date.now() }]);
+      const res = await api.employees.add(empForm);
+      setEmployees(p => [...p, { ...empForm, id: res.id }]);
     }
     setEmpFormOpen(false); setEditEmp(null); setEmpForm(emptyEmployee);
   };
 
   // Reprimand helpers
-  const saveReprimand = () => {
-    if (!repForm.empId || !repForm.reason.trim()) return;
-    setReprimands(p => [...p, { ...repForm, id: Date.now(), date: todayStr() }]);
-    setRepFormOpen(false); setRepForm({ empId: 0, type: "Выговор", reason: "", issuedBy: "" });
+  const saveReprimand = async () => {
+    if (!repForm.emp_id || !repForm.reason.trim()) return;
+    const data = { ...repForm, date: todayStr() };
+    const res = await api.reprimands.add(data);
+    setReprimands(p => [...p, { ...data, id: res.id }]);
+    setRepFormOpen(false); setRepForm({ emp_id: 0, type: "Выговор", reason: "", issued_by: "" });
   };
 
-  const getEmpName = (id: number) => employees.find(e => e.id === id)?.name ?? "—";
+  const getEmpName = (id: number | null) => id ? (employees.find(e => e.id === id)?.name ?? "—") : "—";
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "hsl(216,30%,96%)" }}>
@@ -197,6 +222,13 @@ export default function Index() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+        {loading && (
+          <div className="flex items-center justify-center py-20 gap-3 text-muted-foreground font-ibm text-sm">
+            <Icon name="Loader" size={18} className="animate-spin" />
+            Загрузка данных...
+          </div>
+        )}
+
 
         {/* HOME */}
         {section === "home" && (
@@ -327,7 +359,7 @@ export default function Index() {
                   <tbody className="divide-y divide-border">
                     {filteredOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="px-4 py-3.5 font-semibold text-navy font-oswald">{order.id}</td>
+                        <td className="px-4 py-3.5 font-semibold text-navy font-oswald">{order.order_num}</td>
                         <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{order.date}</td>
                         <td className="px-4 py-3.5 text-foreground">
                           <div className="flex items-center gap-2">
@@ -405,7 +437,7 @@ export default function Index() {
                   <p className="text-muted-foreground text-sm font-ibm mb-5">«{deleteOrderConfirm.title}» будет удалён без возможности восстановления.</p>
                   <div className="flex gap-3">
                     <button onClick={() => setDeleteOrderConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
-                    <button onClick={() => { setOrders(p => p.filter(o => o.id !== deleteOrderConfirm.id)); setDeleteOrderConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Удалить</button>
+                    <button onClick={async () => { await api.orders.remove(deleteOrderConfirm.id); setOrders(p => p.filter(o => o.id !== deleteOrderConfirm.id)); setDeleteOrderConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Удалить</button>
                   </div>
                 </div>
               </div>
@@ -533,7 +565,7 @@ export default function Index() {
                   <p className="text-muted-foreground text-sm font-ibm mb-5">Сотрудник будет удалён из реестра личного состава.</p>
                   <div className="flex gap-3">
                     <button onClick={() => setFireConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
-                    <button onClick={() => { setEmployees(p => p.filter(e => e.id !== fireConfirm.id)); setReprimands(p => p.filter(r => r.empId !== fireConfirm.id)); setFireConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Уволить</button>
+                    <button onClick={async () => { await api.employees.remove(fireConfirm.id); setEmployees(p => p.filter(e => e.id !== fireConfirm.id)); setReprimands(p => p.filter(r => r.emp_id !== fireConfirm.id)); setFireConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Уволить</button>
                   </div>
                 </div>
               </div>
@@ -658,7 +690,7 @@ export default function Index() {
                           <tbody className="divide-y divide-border">
                             {orders.map(order => (
                               <tr key={order.id} className="hover:bg-muted/40 transition-colors">
-                                <td className="px-4 py-3 font-oswald text-navy font-semibold">{order.id}</td>
+                                <td className="px-4 py-3 font-oswald text-navy font-semibold">{order.order_num}</td>
                                 <td className="px-4 py-3 text-foreground">
                                   <div className="flex items-center gap-2">
                                     {order.priority === "high" && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Срочный</span>}
@@ -689,7 +721,7 @@ export default function Index() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="font-oswald text-navy text-sm tracking-wide">Взысканий: {reprimands.length}</span>
-                      <button onClick={() => setRepFormOpen(true)} disabled={employees.length === 0} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                      <button onClick={() => { setRepForm({ emp_id: 0, type: "Выговор", reason: "", issued_by: "" }); setRepFormOpen(true); }} disabled={employees.length === 0} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
                         <Icon name="AlertTriangle" size={15} />Выдать взыскание
                       </button>
                     </div>
@@ -710,12 +742,12 @@ export default function Index() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-oswald text-navy font-semibold text-sm">{getEmpName(r.empId)}</span>
+                                <span className="font-oswald text-navy font-semibold text-sm">{getEmpName(r.emp_id)}</span>
                                 <span className={`text-[11px] px-2 py-0.5 rounded font-ibm ${r.type === "Выговор" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>{r.type}</span>
                                 <span className="text-xs text-muted-foreground font-ibm">{r.date}</span>
                               </div>
                               <p className="text-sm font-ibm text-foreground mt-1">{r.reason}</p>
-                              {r.issuedBy && <p className="text-xs text-muted-foreground font-ibm mt-0.5">Выдал: {r.issuedBy}</p>}
+                              {r.issued_by && <p className="text-xs text-muted-foreground font-ibm mt-0.5">Выдал: {r.issued_by}</p>}
                             </div>
                             <button onClick={() => setDeleteRepConfirm(r)} className="text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0" title="Снять взыскание"><Icon name="Trash2" size={14} /></button>
                           </div>
@@ -738,7 +770,7 @@ export default function Index() {
                       <div className="p-5 space-y-3">
                         <div>
                           <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Сотрудник *</label>
-                          <select value={repForm.empId} onChange={e => setRepForm(p => ({ ...p, empId: Number(e.target.value) }))} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all bg-white">
+                          <select value={repForm.emp_id} onChange={e => setRepForm(p => ({ ...p, emp_id: Number(e.target.value) }))} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all bg-white">
                             <option value={0}>— Выбрать —</option>
                             {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.rank})</option>)}
                           </select>
@@ -757,9 +789,9 @@ export default function Index() {
                         </div>
                         <div>
                           <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Выдал (ваш ник)</label>
-                          <input value={repForm.issuedBy} onChange={e => setRepForm(p => ({ ...p, issuedBy: e.target.value }))} placeholder="Ethan_Santoro" className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all" />
+                          <input value={repForm.issued_by} onChange={e => setRepForm(p => ({ ...p, issued_by: e.target.value }))} placeholder="Ethan_Santoro" className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all" />
                         </div>
-                        <button disabled={!repForm.empId || !repForm.reason.trim()} onClick={saveReprimand} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1">
+                        <button disabled={!repForm.emp_id || !repForm.reason.trim()} onClick={saveReprimand} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1">
                           Выдать взыскание
                         </button>
                       </div>
@@ -772,10 +804,10 @@ export default function Index() {
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setDeleteRepConfirm(null)}>
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={e => e.stopPropagation()}>
                       <h3 className="font-oswald text-navy text-lg mb-2">Снять взыскание?</h3>
-                      <p className="text-muted-foreground text-sm font-ibm mb-5">Взыскание «{deleteRepConfirm.type}» для {getEmpName(deleteRepConfirm.empId)} будет удалено.</p>
+                      <p className="text-muted-foreground text-sm font-ibm mb-5">Взыскание «{deleteRepConfirm.type}» для {getEmpName(deleteRepConfirm.emp_id)} будет удалено.</p>
                       <div className="flex gap-3">
                         <button onClick={() => setDeleteRepConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
-                        <button onClick={() => { setReprimands(p => p.filter(r => r.id !== deleteRepConfirm.id)); setDeleteRepConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Снять</button>
+                        <button onClick={async () => { await api.reprimands.remove(deleteRepConfirm.id); setReprimands(p => p.filter(r => r.id !== deleteRepConfirm.id)); setDeleteRepConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Снять</button>
                       </div>
                     </div>
                   </div>
