@@ -258,7 +258,7 @@ export default function Index() {
                   <button onClick={() => handleNav("employees", true)} className="text-gold-light text-xs hover:text-gold font-ibm transition-colors">Все →</button>
                 </div>
                 <div className="divide-y divide-border">
-                  {mockEmployees.filter(e => e.status === "online").map((emp) => (
+                  {employees.filter(e => e.status === "online").map((emp) => (
                     <div key={emp.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0">
                         <Icon name="User" size={16} className="text-navy" />
