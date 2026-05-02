@@ -84,16 +84,16 @@ export default function Index() {
     load();
   }, []);
 
-  const navItems: { id: Section; label: string; icon: string; restricted?: boolean }[] = [
+  const navItems: { id: Section; label: string; icon: string; restricted?: boolean; guestHidden?: boolean }[] = [
     { id: "home", label: "Главная", icon: "Home" },
-    { id: "wanted", label: "Розыск", icon: "AlertOctagon" },
-    { id: "orders", label: "Приказы", icon: "FileText", restricted: true },
-    { id: "employees", label: "Сотрудники", icon: "Users", restricted: true },
-    { id: "generator", label: "Генератор приказов", icon: "FilePen", restricted: true },
-    { id: "management", label: "Управление", icon: "Settings", restricted: true },
-    { id: "documents", label: "Документы", icon: "FolderOpen", restricted: true },
+    { id: "wanted", label: "Розыск", icon: "AlertOctagon", guestHidden: true },
+    { id: "orders", label: "Приказы", icon: "FileText", restricted: true, guestHidden: true },
+    { id: "employees", label: "Сотрудники", icon: "Users", restricted: true, guestHidden: true },
+    { id: "generator", label: "Генератор приказов", icon: "FilePen", restricted: true, guestHidden: true },
+    { id: "management", label: "Управление", icon: "Settings", restricted: true, guestHidden: true },
+    { id: "documents", label: "Документы", icon: "FolderOpen", restricted: true, guestHidden: true },
     { id: "contacts", label: "Контакты", icon: "Phone" },
-    { id: "cabinet", label: "Кабинет", icon: "UserCircle", restricted: true },
+    { id: "cabinet", label: "Кабинет", icon: "UserCircle", restricted: true, guestHidden: true },
   ];
 
   const handleNav = (id: Section, restricted?: boolean) => {
@@ -200,7 +200,7 @@ export default function Index() {
         <nav className={`bg-navy border-t border-white/10 ${mobileMenuOpen ? "block" : "hidden sm:block"}`}>
           <div className="max-w-7xl mx-auto px-4">
             <ul className="flex flex-col sm:flex-row">
-              {navItems.map((item) => {
+              {navItems.filter(item => !(item.guestHidden && role === "guest")).map((item) => {
                 const isActive = section === item.id;
                 const locked = item.restricted && role === "guest";
                 return (
