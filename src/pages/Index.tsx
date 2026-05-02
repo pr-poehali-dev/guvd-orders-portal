@@ -8,29 +8,20 @@ type Section = "home" | "orders" | "employees" | "management" | "documents" | "c
 
 const CREST_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Emblem_of_the_Ministry_of_Internal_Affairs.svg/960px-Emblem_of_the_Ministry_of_Internal_Affairs.svg.png";
 
-const mockOrders = [
-  { id: "№ 147", date: "15.04.2026", title: "О проведении плановых учений личного состава", status: "Действующий", priority: "high" },
-  { id: "№ 146", date: "12.04.2026", title: "О назначении дежурной смены на апрель 2026", status: "Действующий", priority: "normal" },
-  { id: "№ 145", date: "08.04.2026", title: "О поощрении сотрудников отдела патрулирования", status: "Действующий", priority: "normal" },
-  { id: "№ 144", date: "01.04.2026", title: "О введении новых стандартов служебной формы", status: "Архив", priority: "normal" },
-  { id: "№ 143", date: "25.03.2026", title: "О реорганизации дорожно-патрульной службы", status: "Архив", priority: "normal" },
-];
-
-const initialEmployees = [
-  { id: 1, rank: "Полковник", name: "Александр Кравченко", dept: "Командование", badge: "ГУ-001", status: "online" },
-  { id: 2, rank: "Подполковник", name: "Дмитрий Воронов", dept: "Оперативный отдел", badge: "ГУ-008", status: "online" },
-  { id: 3, rank: "Майор", name: "Сергей Лисицын", dept: "Патрульная служба", badge: "ГУ-015", status: "offline" },
-  { id: 4, rank: "Капитан", name: "Иван Морозов", dept: "Следственный отдел", badge: "ГУ-022", status: "online" },
-  { id: 5, rank: "Старший лейтенант", name: "Николай Петров", dept: "Патрульная служба", badge: "ГУ-031", status: "offline" },
-  { id: 6, rank: "Лейтенант", name: "Андрей Зайцев", dept: "ДПС", badge: "ГУ-044", status: "online" },
-];
-
 type Employee = { id: number; rank: string; name: string; dept: string; badge: string; status: string };
+type Order = { id: string; date: string; title: string; status: string; priority: string };
+type Reprimand = { id: number; empId: number; type: string; reason: string; date: string; issuedBy: string };
 
 const emptyEmployee: Omit<Employee, "id"> = { rank: "", name: "", dept: "", badge: "", status: "online" };
+const emptyOrder: Omit<Order, "id"> = { date: "", title: "", status: "Действующий", priority: "normal" };
 
 const RANKS = ["Рядовой", "Младший сержант", "Сержант", "Старший сержант", "Прапорщик", "Лейтенант", "Старший лейтенант", "Капитан", "Майор", "Подполковник", "Полковник", "Генерал-майор"];
 const DEPTS = ["Командование", "Оперативный отдел", "Патрульная служба", "Следственный отдел", "ДПС", "Дежурная часть", "Кинологический отдел"];
+
+const todayStr = () => {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+};
 
 const mockDocuments = [
   { id: 1, title: "Устав ГУВД Провинции", type: "Нормативный акт", date: "01.01.2026", size: "124 КБ" },
@@ -40,13 +31,6 @@ const mockDocuments = [
   { id: 5, title: "Схема патрульных маршрутов", type: "Карта", date: "20.03.2026", size: "210 КБ" },
 ];
 
-const stats = [
-  { label: "Сотрудников", value: "47", icon: "Users" },
-  { label: "Активных приказов", value: "12", icon: "FileText" },
-  { label: "Дел в производстве", value: "23", icon: "Briefcase" },
-  { label: "Патрулей сегодня", value: "8", icon: "Shield" },
-];
-
 export default function Index() {
   const [role, setRole] = useState<Role>("guest");
   const [section, setSection] = useState<Section>("home");
@@ -54,11 +38,29 @@ export default function Index() {
   const [loginRole, setLoginRole] = useState<"employee" | "commander">("employee");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  // Employees state
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [empFormOpen, setEmpFormOpen] = useState(false);
   const [editEmp, setEditEmp] = useState<Employee | null>(null);
   const [empForm, setEmpForm] = useState<Omit<Employee, "id">>(emptyEmployee);
   const [fireConfirm, setFireConfirm] = useState<Employee | null>(null);
+
+  // Orders state
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderFormOpen, setOrderFormOpen] = useState(false);
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
+  const [orderForm, setOrderForm] = useState<Omit<Order, "id">>(emptyOrder);
+  const [deleteOrderConfirm, setDeleteOrderConfirm] = useState<Order | null>(null);
+  const [orderFilter, setOrderFilter] = useState("Все");
+
+  // Reprimands state
+  const [reprimands, setReprimands] = useState<Reprimand[]>([]);
+  const [repFormOpen, setRepFormOpen] = useState(false);
+  const [repForm, setRepForm] = useState({ empId: 0, type: "Выговор", reason: "", issuedBy: "" });
+  const [deleteRepConfirm, setDeleteRepConfirm] = useState<Reprimand | null>(null);
+
+  // Management tab
+  const [mgmtTab, setMgmtTab] = useState<"employees" | "orders" | "reprimands">("employees");
 
   const navItems: { id: Section; label: string; icon: string; restricted?: boolean }[] = [
     { id: "home", label: "Главная", icon: "Home" },
@@ -73,24 +75,61 @@ export default function Index() {
   ];
 
   const handleNav = (id: Section, restricted?: boolean) => {
-    if (restricted && role === "guest") {
-      setLoginOpen(true);
-      return;
-    }
+    if (restricted && role === "guest") { setLoginOpen(true); return; }
     setSection(id);
     setMobileMenuOpen(false);
   };
 
-  const handleLogin = () => {
-    setRole(loginRole);
-    setLoginOpen(false);
-    setSection("cabinet");
+  const handleLogin = () => { setRole(loginRole); setLoginOpen(false); setSection("cabinet"); };
+  const handleLogout = () => { setRole("guest"); setSection("home"); };
+
+  // Computed stats
+  const activeOrders = orders.filter(o => o.status === "Действующий").length;
+  const onlineCount = employees.filter(e => e.status === "online").length;
+  const repCount = reprimands.length;
+
+  // Order helpers
+  const saveOrder = () => {
+    if (!orderForm.title.trim()) return;
+    const date = orderForm.date || todayStr();
+    if (editOrder) {
+      setOrders(p => p.map(o => o.id === editOrder.id ? { ...orderForm, date, id: editOrder.id } : o));
+    } else {
+      const nextNum = orders.length > 0
+        ? Math.max(...orders.map(o => parseInt(o.id.replace(/\D/g, "")) || 0)) + 1
+        : 100;
+      setOrders(p => [{ ...orderForm, date, id: `№ ${nextNum}` }, ...p]);
+    }
+    setOrderFormOpen(false); setEditOrder(null); setOrderForm(emptyOrder);
   };
 
-  const handleLogout = () => {
-    setRole("guest");
-    setSection("home");
+  const filteredOrders = orders.filter(o => {
+    if (orderFilter === "Все") return true;
+    if (orderFilter === "Действующие") return o.status === "Действующий";
+    if (orderFilter === "Архив") return o.status === "Архив";
+    if (orderFilter === "Срочные") return o.priority === "high";
+    return true;
+  });
+
+  // Employee helpers
+  const saveEmployee = () => {
+    if (!empForm.name.trim()) return;
+    if (editEmp) {
+      setEmployees(p => p.map(e => e.id === editEmp.id ? { ...empForm, id: editEmp.id } : e));
+    } else {
+      setEmployees(p => [...p, { ...empForm, id: Date.now() }]);
+    }
+    setEmpFormOpen(false); setEditEmp(null); setEmpForm(emptyEmployee);
   };
+
+  // Reprimand helpers
+  const saveReprimand = () => {
+    if (!repForm.empId || !repForm.reason.trim()) return;
+    setReprimands(p => [...p, { ...repForm, id: Date.now(), date: todayStr() }]);
+    setRepFormOpen(false); setRepForm({ empId: 0, type: "Выговор", reason: "", issuedBy: "" });
+  };
+
+  const getEmpName = (id: number) => employees.find(e => e.id === id)?.name ?? "—";
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "hsl(216,30%,96%)" }}>
@@ -106,57 +145,33 @@ export default function Index() {
       {/* Header */}
       <header className="bg-navy-mid header-pattern shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <img
-            src={CREST_URL}
-            alt="Герб ГУВД"
-            className="w-14 h-14 rounded-full border-2 border-gold object-cover flex-shrink-0 shadow-md"
-          />
+          <img src={CREST_URL} alt="Герб ГУВД" className="w-14 h-14 rounded-full border-2 border-gold object-cover flex-shrink-0 shadow-md" />
           <div className="flex-1 min-w-0">
-            <h1 className="font-oswald text-white text-xl sm:text-2xl font-semibold tracking-wide leading-tight">
-              ГУВД · Провинция
-            </h1>
-            <p className="text-white/60 text-xs font-ibm tracking-wider uppercase mt-0.5">
-              Главное Управление Внутренних Дел · MTA Server 1
-            </p>
+            <h1 className="font-oswald text-white text-xl sm:text-2xl font-semibold tracking-wide leading-tight">ГУВД · Провинция</h1>
+            <p className="text-white/60 text-xs font-ibm tracking-wider uppercase mt-0.5">Главное Управление Внутренних Дел · MTA Server 1</p>
           </div>
           <div className="flex items-center gap-3">
             {role === "guest" ? (
-              <button
-                onClick={() => setLoginOpen(true)}
-                className="flex items-center gap-2 bg-gold hover:bg-yellow-400 text-navy font-oswald font-semibold px-4 py-2 text-sm tracking-wide transition-colors rounded"
-              >
-                <Icon name="LogIn" size={15} />
-                Войти
+              <button onClick={() => setLoginOpen(true)} className="flex items-center gap-2 bg-gold hover:bg-yellow-400 text-navy font-oswald font-semibold px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                <Icon name="LogIn" size={15} />Войти
               </button>
             ) : (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-white text-sm font-oswald">
-                    {role === "commander" ? "Руководящий состав" : "Сотрудник"}
-                  </span>
-                  <span className="text-gold-light text-xs font-ibm">
-                    {role === "commander" ? "★ Командование" : "● На службе"}
-                  </span>
+                  <span className="text-white text-sm font-oswald">{role === "commander" ? "Руководящий состав" : "Сотрудник"}</span>
+                  <span className="text-gold-light text-xs font-ibm">{role === "commander" ? "★ Командование" : "● На службе"}</span>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="text-white/60 hover:text-white transition-colors p-1.5"
-                  title="Выйти"
-                >
+                <button onClick={handleLogout} className="text-white/60 hover:text-white transition-colors p-1.5" title="Выйти">
                   <Icon name="LogOut" size={18} />
                 </button>
               </div>
             )}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="sm:hidden text-white/80 hover:text-white p-1"
-            >
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="sm:hidden text-white/80 hover:text-white p-1">
               <Icon name={mobileMenuOpen ? "X" : "Menu"} size={22} />
             </button>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className={`bg-navy border-t border-white/10 ${mobileMenuOpen ? "block" : "hidden sm:block"}`}>
           <div className="max-w-7xl mx-auto px-4">
             <ul className="flex flex-col sm:flex-row">
@@ -167,13 +182,7 @@ export default function Index() {
                   <li key={item.id}>
                     <button
                       onClick={() => handleNav(item.id, item.restricted)}
-                      className={`flex items-center gap-2 px-4 py-3 text-sm font-oswald tracking-wide w-full sm:w-auto transition-colors
-                        ${isActive
-                          ? "text-gold border-b-2 border-gold bg-white/5"
-                          : locked
-                          ? "text-white/40 hover:text-white/60"
-                          : "text-white/75 hover:text-white hover:bg-white/5"
-                        }`}
+                      className={`flex items-center gap-2 px-4 py-3 text-sm font-oswald tracking-wide w-full sm:w-auto transition-colors ${isActive ? "text-gold border-b-2 border-gold bg-white/5" : locked ? "text-white/40 hover:text-white/60" : "text-white/75 hover:text-white hover:bg-white/5"}`}
                     >
                       <Icon name={item.icon} size={15} />
                       {item.label}
@@ -187,7 +196,6 @@ export default function Index() {
         </nav>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
 
         {/* HOME */}
@@ -199,27 +207,27 @@ export default function Index() {
                 <img src={CREST_URL} alt="Герб" className="w-24 h-24 rounded-full border-4 border-gold object-cover shadow-xl flex-shrink-0" />
                 <div>
                   <div className="text-gold text-xs font-oswald tracking-widest uppercase mb-2">Официальный портал</div>
-                  <h2 className="font-oswald text-white text-3xl sm:text-4xl font-bold leading-tight">
-                    ГУВД Провинции
-                  </h2>
+                  <h2 className="font-oswald text-white text-3xl sm:text-4xl font-bold leading-tight">ГУВД Провинции</h2>
                   <p className="text-white/60 font-ibm text-sm mt-2 max-w-xl leading-relaxed">
                     Внутренний информационный портал Главного Управления Внутренних Дел игрового сервера МТА Провинция (Сервер 1). Доступ к приказам, документам и личному кабинету требует авторизации.
                   </p>
                   {role === "guest" && (
-                    <button
-                      onClick={() => setLoginOpen(true)}
-                      className="mt-4 bg-gold hover:bg-yellow-400 text-navy font-oswald font-semibold px-6 py-2.5 text-sm tracking-wide transition-colors rounded inline-flex items-center gap-2"
-                    >
-                      <Icon name="LogIn" size={16} />
-                      Войти в систему
+                    <button onClick={() => setLoginOpen(true)} className="mt-4 bg-gold hover:bg-yellow-400 text-navy font-oswald font-semibold px-6 py-2.5 text-sm tracking-wide transition-colors rounded inline-flex items-center gap-2">
+                      <Icon name="LogIn" size={16} />Войти в систему
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
+            {/* Dynamic stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {stats.map((stat, i) => (
+              {[
+                { label: "Сотрудников", value: String(employees.length), icon: "Users" },
+                { label: "Активных приказов", value: String(activeOrders), icon: "FileText" },
+                { label: "Взысканий", value: String(repCount), icon: "AlertTriangle" },
+                { label: "На службе", value: String(onlineCount), icon: "Shield" },
+              ].map((stat, i) => (
                 <div key={stat.label} className={`bg-white rounded-lg p-4 border border-border card-hover animate-slide-up animate-stagger-${i + 1}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-muted-foreground text-xs font-ibm uppercase tracking-wide">{stat.label}</span>
@@ -239,7 +247,9 @@ export default function Index() {
                   <button onClick={() => handleNav("orders", true)} className="text-gold-light text-xs hover:text-gold font-ibm transition-colors">Все приказы →</button>
                 </div>
                 <div className="divide-y divide-border">
-                  {mockOrders.slice(0, 3).map((o) => (
+                  {orders.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-muted-foreground text-sm font-ibm">Приказов пока нет</div>
+                  ) : orders.slice(0, 3).map((o) => (
                     <div key={o.id} className="px-4 py-3 ribbon-line pl-6 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-oswald text-navy text-xs font-semibold">{o.id}</span>
@@ -258,7 +268,9 @@ export default function Index() {
                   <button onClick={() => handleNav("employees", true)} className="text-gold-light text-xs hover:text-gold font-ibm transition-colors">Все →</button>
                 </div>
                 <div className="divide-y divide-border">
-                  {employees.filter(e => e.status === "online").map((emp) => (
+                  {employees.filter(e => e.status === "online").length === 0 ? (
+                    <div className="px-4 py-6 text-center text-muted-foreground text-sm font-ibm">Никого нет на службе</div>
+                  ) : employees.filter(e => e.status === "online").map((emp) => (
                     <div key={emp.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0">
                         <Icon name="User" size={16} className="text-navy" />
@@ -285,55 +297,119 @@ export default function Index() {
                 <p className="text-muted-foreground text-sm font-ibm">Реестр действующих и архивных приказов ГУВД</p>
               </div>
               {role === "commander" && (
-                <button className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
-                  <Icon name="Plus" size={16} />
-                  Создать приказ
+                <button onClick={() => { setEditOrder(null); setOrderForm(emptyOrder); setOrderFormOpen(true); }} className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                  <Icon name="Plus" size={16} />Создать приказ
                 </button>
               )}
             </div>
             <div className="bg-white rounded-lg border border-border px-4 py-3 flex flex-wrap gap-2">
               {["Все", "Действующие", "Архив", "Срочные"].map((f) => (
-                <button key={f} className={`px-3 py-1.5 text-xs font-oswald tracking-wide rounded transition-colors ${f === "Все" ? "bg-navy text-white" : "bg-muted text-muted-foreground hover:bg-navy/10 hover:text-navy"}`}>{f}</button>
+                <button key={f} onClick={() => setOrderFilter(f)} className={`px-3 py-1.5 text-xs font-oswald tracking-wide rounded transition-colors ${orderFilter === f ? "bg-navy text-white" : "bg-muted text-muted-foreground hover:bg-navy/10 hover:text-navy"}`}>{f}</button>
               ))}
             </div>
             <div className="bg-white rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm font-ibm">
-                <thead>
-                  <tr className="bg-navy/5 border-b border-border">
-                    <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Номер</th>
-                    <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Дата</th>
-                    <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Наименование</th>
-                    <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide hidden sm:table-cell">Статус</th>
-                    {role === "commander" && <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Действия</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {mockOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-navy font-oswald">{order.id}</td>
-                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{order.date}</td>
-                      <td className="px-4 py-3.5 text-foreground">
-                        <div className="flex items-center gap-2">
-                          {order.priority === "high" && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded flex-shrink-0">Срочный</span>}
-                          {order.title}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 hidden sm:table-cell">
-                        <span className={`text-xs px-2 py-1 rounded font-ibm ${order.status === "Действующий" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{order.status}</span>
-                      </td>
-                      {role === "commander" && (
-                        <td className="px-4 py-3.5">
-                          <div className="flex gap-2">
-                            <button className="text-muted-foreground hover:text-navy transition-colors"><Icon name="Pencil" size={15} /></button>
-                            <button className="text-muted-foreground hover:text-red-500 transition-colors"><Icon name="Trash2" size={15} /></button>
+              {filteredOrders.length === 0 ? (
+                <div className="p-10 text-center">
+                  <Icon name="FileText" size={36} className="mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground font-ibm text-sm">Приказов нет{orderFilter !== "Все" ? " в этой категории" : ""}</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm font-ibm">
+                  <thead>
+                    <tr className="bg-navy/5 border-b border-border">
+                      <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Номер</th>
+                      <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Дата</th>
+                      <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Наименование</th>
+                      <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide hidden sm:table-cell">Статус</th>
+                      {role === "commander" && <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Действия</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/40 transition-colors">
+                        <td className="px-4 py-3.5 font-semibold text-navy font-oswald">{order.id}</td>
+                        <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{order.date}</td>
+                        <td className="px-4 py-3.5 text-foreground">
+                          <div className="flex items-center gap-2">
+                            {order.priority === "high" && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded flex-shrink-0">Срочный</span>}
+                            {order.title}
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <td className="px-4 py-3.5 hidden sm:table-cell">
+                          <span className={`text-xs px-2 py-1 rounded font-ibm ${order.status === "Действующий" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{order.status}</span>
+                        </td>
+                        {role === "commander" && (
+                          <td className="px-4 py-3.5">
+                            <div className="flex gap-2">
+                              <button onClick={() => { setEditOrder(order); setOrderForm({ date: order.date, title: order.title, status: order.status, priority: order.priority }); setOrderFormOpen(true); }} className="text-muted-foreground hover:text-navy transition-colors" title="Редактировать"><Icon name="Pencil" size={15} /></button>
+                              <button onClick={() => setDeleteOrderConfirm(order)} className="text-muted-foreground hover:text-red-500 transition-colors" title="Удалить"><Icon name="Trash2" size={15} /></button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
+
+            {/* ORDER FORM MODAL */}
+            {orderFormOpen && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setOrderFormOpen(false)}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+                  <div className="bg-navy px-5 py-4 flex items-center justify-between">
+                    <span className="font-oswald text-white tracking-wide flex items-center gap-2">
+                      <Icon name={editOrder ? "Pencil" : "Plus"} size={16} />
+                      {editOrder ? "Редактировать приказ" : "Создать приказ"}
+                    </span>
+                    <button onClick={() => setOrderFormOpen(false)} className="text-white/70 hover:text-white"><Icon name="X" size={18} /></button>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Наименование *</label>
+                      <input value={orderForm.title} onChange={e => setOrderForm(p => ({ ...p, title: e.target.value }))} placeholder="О проведении инструктажа..." className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Дата (пусто = сегодня)</label>
+                      <input value={orderForm.date} onChange={e => setOrderForm(p => ({ ...p, date: e.target.value }))} placeholder={todayStr()} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Статус</label>
+                      <div className="flex gap-2">
+                        {["Действующий", "Архив"].map(s => (
+                          <button key={s} onClick={() => setOrderForm(p => ({ ...p, status: s }))} className={`flex-1 py-2 rounded text-xs font-oswald tracking-wide border transition-colors ${orderForm.status === s ? "bg-navy text-white border-navy" : "border-border text-muted-foreground hover:border-navy/30"}`}>{s}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Приоритет</label>
+                      <div className="flex gap-2">
+                        {[{ v: "normal", l: "Обычный" }, { v: "high", l: "Срочный" }].map(p => (
+                          <button key={p.v} onClick={() => setOrderForm(prev => ({ ...prev, priority: p.v }))} className={`flex-1 py-2 rounded text-xs font-oswald tracking-wide border transition-colors ${orderForm.priority === p.v ? (p.v === "high" ? "bg-red-600 text-white border-red-600" : "bg-navy text-white border-navy") : "border-border text-muted-foreground hover:border-navy/30"}`}>{p.l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button disabled={!orderForm.title.trim()} onClick={saveOrder} className="w-full bg-navy hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1">
+                      {editOrder ? "Сохранить" : "Создать приказ"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DELETE ORDER CONFIRM */}
+            {deleteOrderConfirm && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setDeleteOrderConfirm(null)}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={e => e.stopPropagation()}>
+                  <h3 className="font-oswald text-navy text-lg mb-2">Удалить приказ?</h3>
+                  <p className="text-muted-foreground text-sm font-ibm mb-5">«{deleteOrderConfirm.title}» будет удалён без возможности восстановления.</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setDeleteOrderConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
+                    <button onClick={() => { setOrders(p => p.filter(o => o.id !== deleteOrderConfirm.id)); setDeleteOrderConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Удалить</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -346,60 +422,52 @@ export default function Index() {
                 <p className="text-muted-foreground text-sm font-ibm">Реестр сотрудников ГУВД Провинции · {employees.length} чел.</p>
               </div>
               {role === "commander" && (
-                <button
-                  onClick={() => { setEditEmp(null); setEmpForm(emptyEmployee); setEmpFormOpen(true); }}
-                  className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded"
-                >
-                  <Icon name="UserPlus" size={16} />
-                  Принять сотрудника
+                <button onClick={() => { setEditEmp(null); setEmpForm(emptyEmployee); setEmpFormOpen(true); }} className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                  <Icon name="UserPlus" size={16} />Принять сотрудника
                 </button>
               )}
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {employees.map((emp, i) => (
-                <div key={emp.id} className={`bg-white rounded-lg border border-border p-4 card-hover animate-slide-up animate-stagger-${Math.min(i + 1, 6)}`}>
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0 border-2 border-navy/20">
-                      <Icon name="User" size={22} className="text-navy" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-oswald text-navy font-semibold text-sm truncate">{emp.name}</h3>
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${emp.status === "online" ? "bg-green-500" : "bg-gray-300"}`} title={emp.status === "online" ? "На службе" : "Не в сети"} />
+            {employees.length === 0 ? (
+              <div className="bg-white rounded-lg border border-border p-10 text-center">
+                <Icon name="Users" size={40} className="mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground font-ibm text-sm">Сотрудников пока нет</p>
+                {role === "commander" && <p className="text-muted-foreground font-ibm text-xs mt-1">Добавьте первого через кнопку «Принять сотрудника»</p>}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {employees.map((emp, i) => (
+                  <div key={emp.id} className={`bg-white rounded-lg border border-border p-4 card-hover animate-slide-up animate-stagger-${Math.min(i + 1, 6)}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0 border-2 border-navy/20">
+                        <Icon name="User" size={22} className="text-navy" />
                       </div>
-                      <div className="text-xs text-muted-foreground font-ibm">{emp.rank}</div>
-                      <div className="text-xs text-muted-foreground font-ibm mt-0.5">{emp.dept}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-oswald text-navy font-semibold text-sm truncate">{emp.name}</h3>
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${emp.status === "online" ? "bg-green-500" : "bg-gray-300"}`} title={emp.status === "online" ? "На службе" : "Не в сети"} />
+                        </div>
+                        <div className="text-xs text-muted-foreground font-ibm">{emp.rank}</div>
+                        <div className="text-xs text-muted-foreground font-ibm mt-0.5">{emp.dept}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                      <span className="text-xs font-oswald text-navy/60 tracking-wide">Жетон: {emp.badge || "—"}</span>
+                      {role === "commander" && (
+                        <div className="flex gap-2">
+                          <button onClick={() => { setEditEmp(emp); setEmpForm({ rank: emp.rank, name: emp.name, dept: emp.dept, badge: emp.badge, status: emp.status }); setEmpFormOpen(true); }} className="text-muted-foreground hover:text-navy transition-colors" title="Редактировать"><Icon name="Pencil" size={14} /></button>
+                          <button onClick={() => setFireConfirm(emp)} className="text-muted-foreground hover:text-red-500 transition-colors" title="Уволить"><Icon name="UserMinus" size={14} /></button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                    <span className="text-xs font-oswald text-navy/60 tracking-wide">Жетон: {emp.badge}</span>
-                    {role === "commander" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setEditEmp(emp); setEmpForm({ rank: emp.rank, name: emp.name, dept: emp.dept, badge: emp.badge, status: emp.status }); setEmpFormOpen(true); }}
-                          className="text-muted-foreground hover:text-navy transition-colors"
-                          title="Редактировать"
-                        >
-                          <Icon name="Pencil" size={14} />
-                        </button>
-                        <button
-                          onClick={() => setFireConfirm(emp)}
-                          className="text-muted-foreground hover:text-red-500 transition-colors"
-                          title="Уволить"
-                        >
-                          <Icon name="UserMinus" size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
-            {/* ADD / EDIT MODAL */}
+            {/* EMP FORM MODAL */}
             {empFormOpen && (
               <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEmpFormOpen(false)}>
-                <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
                   <div className="bg-navy px-5 py-4 flex items-center justify-between">
                     <span className="font-oswald text-white tracking-wide flex items-center gap-2">
                       <Icon name={editEmp ? "Pencil" : "UserPlus"} size={16} />
@@ -410,73 +478,38 @@ export default function Index() {
                   <div className="p-5 space-y-3">
                     <div>
                       <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Имя / Ник *</label>
-                      <input
-                        value={empForm.name}
-                        onChange={(e) => setEmpForm((p) => ({ ...p, name: e.target.value }))}
-                        placeholder="Иван Морозов"
-                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
-                      />
+                      <input value={empForm.name} onChange={e => setEmpForm(p => ({ ...p, name: e.target.value }))} placeholder="Иван Морозов" className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all" />
                     </div>
                     <div>
                       <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Звание</label>
-                      <select
-                        value={empForm.rank}
-                        onChange={(e) => setEmpForm((p) => ({ ...p, rank: e.target.value }))}
-                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white"
-                      >
+                      <select value={empForm.rank} onChange={e => setEmpForm(p => ({ ...p, rank: e.target.value }))} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white">
                         <option value="">— Выбрать —</option>
-                        {RANKS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Подразделение</label>
-                      <select
-                        value={empForm.dept}
-                        onChange={(e) => setEmpForm((p) => ({ ...p, dept: e.target.value }))}
-                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white"
-                      >
+                      <select value={empForm.dept} onChange={e => setEmpForm(p => ({ ...p, dept: e.target.value }))} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all bg-white">
                         <option value="">— Выбрать —</option>
-                        {DEPTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                        {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Номер жетона</label>
-                      <input
-                        value={empForm.badge}
-                        onChange={(e) => setEmpForm((p) => ({ ...p, badge: e.target.value }))}
-                        placeholder="ГУ-055"
-                        className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all"
-                      />
+                      <input value={empForm.badge} onChange={e => setEmpForm(p => ({ ...p, badge: e.target.value }))} placeholder="ГУ-055" className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-navy/40 focus:ring-1 focus:ring-navy/10 transition-all" />
                     </div>
                     <div>
                       <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Статус</label>
                       <div className="flex gap-3">
-                        {(["online", "offline"] as const).map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => setEmpForm((p) => ({ ...p, status: s }))}
-                            className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-oswald tracking-wide border transition-colors ${empForm.status === s ? "bg-navy text-white border-navy" : "border-border text-muted-foreground hover:border-navy/30"}`}
-                          >
+                        {(["online", "offline"] as const).map(s => (
+                          <button key={s} onClick={() => setEmpForm(p => ({ ...p, status: s }))} className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-oswald tracking-wide border transition-colors ${empForm.status === s ? "bg-navy text-white border-navy" : "border-border text-muted-foreground hover:border-navy/30"}`}>
                             <div className={`w-2 h-2 rounded-full ${s === "online" ? "bg-green-400" : "bg-gray-400"}`} />
                             {s === "online" ? "На службе" : "Не в сети"}
                           </button>
                         ))}
                       </div>
                     </div>
-                    <button
-                      disabled={!empForm.name.trim()}
-                      onClick={() => {
-                        if (editEmp) {
-                          setEmployees((prev) => prev.map((e) => e.id === editEmp.id ? { ...empForm, id: editEmp.id } : e));
-                        } else {
-                          setEmployees((prev) => [...prev, { ...empForm, id: Date.now() }]);
-                        }
-                        setEmpFormOpen(false);
-                        setEditEmp(null);
-                        setEmpForm(emptyEmployee);
-                      }}
-                      className="w-full bg-navy hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1"
-                    >
+                    <button disabled={!empForm.name.trim()} onClick={saveEmployee} className="w-full bg-navy hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1">
                       {editEmp ? "Сохранить изменения" : "Принять на службу"}
                     </button>
                   </div>
@@ -487,7 +520,7 @@ export default function Index() {
             {/* FIRE CONFIRM */}
             {fireConfirm && (
               <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setFireConfirm(null)}>
-                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                       <Icon name="UserMinus" size={18} className="text-red-600" />
@@ -500,12 +533,7 @@ export default function Index() {
                   <p className="text-muted-foreground text-sm font-ibm mb-5">Сотрудник будет удалён из реестра личного состава.</p>
                   <div className="flex gap-3">
                     <button onClick={() => setFireConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
-                    <button
-                      onClick={() => { setEmployees((prev) => prev.filter((e) => e.id !== fireConfirm.id)); setFireConfirm(null); }}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors"
-                    >
-                      Уволить
-                    </button>
+                    <button onClick={() => { setEmployees(p => p.filter(e => e.id !== fireConfirm.id)); setReprimands(p => p.filter(r => r.empId !== fireConfirm.id)); setFireConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Уволить</button>
                   </div>
                 </div>
               </div>
@@ -524,7 +552,7 @@ export default function Index() {
           <div className="space-y-4 animate-fade-in">
             <div>
               <h2 className="font-oswald text-2xl text-navy font-semibold">Управление</h2>
-              <p className="text-muted-foreground text-sm font-ibm">Инструменты для руководящего состава</p>
+              <p className="text-muted-foreground text-sm font-ibm">Инструменты руководящего состава ГУВД</p>
             </div>
             {role !== "commander" ? (
               <div className="bg-white rounded-lg border border-border p-8 text-center">
@@ -534,42 +562,224 @@ export default function Index() {
               </div>
             ) : (
               <>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { icon: "FileText", title: "Создать приказ", desc: "Новый приказ по личному составу или общий", color: "bg-blue-50 text-blue-700" },
-                    { icon: "Users", title: "Личный состав", desc: "Принять, уволить, повысить сотрудника", color: "bg-green-50 text-green-700" },
-                    { icon: "BarChart3", title: "Отчёты", desc: "Аналитика активности и статистика", color: "bg-purple-50 text-purple-700" },
-                    { icon: "Bell", title: "Оповещения", desc: "Рассылка уведомлений личному составу", color: "bg-orange-50 text-orange-700" },
-                    { icon: "Award", title: "Поощрения", desc: "Награждение и взыскания сотрудников", color: "bg-yellow-50 text-yellow-700" },
-                    { icon: "Calendar", title: "Расписание", desc: "График дежурств и патрулей", color: "bg-teal-50 text-teal-700" },
-                  ].map((item) => (
-                    <button key={item.title} className="bg-white rounded-lg border border-border p-5 text-left card-hover group transition-all hover:border-navy/30">
-                      <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center mb-3`}>
-                        <Icon name={item.icon} size={20} />
-                      </div>
-                      <h3 className="font-oswald text-navy font-semibold text-sm mb-1 group-hover:text-navy-light transition-colors">{item.title}</h3>
-                      <p className="text-xs text-muted-foreground font-ibm leading-relaxed">{item.desc}</p>
+                {/* Management Tabs */}
+                <div className="flex rounded-lg border border-border overflow-hidden bg-white w-fit">
+                  {([
+                    { id: "employees", label: "Сотрудники", icon: "Users" },
+                    { id: "orders", label: "Приказы", icon: "FileText" },
+                    { id: "reprimands", label: "Взыскания", icon: "AlertTriangle" },
+                  ] as { id: typeof mgmtTab; label: string; icon: string }[]).map((t, i) => (
+                    <button key={t.id} onClick={() => setMgmtTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-oswald tracking-wide transition-colors ${i > 0 ? "border-l border-border" : ""} ${mgmtTab === t.id ? "bg-navy text-white" : "text-muted-foreground hover:text-navy"}`}>
+                      <Icon name={t.icon} size={14} />{t.label}
                     </button>
                   ))}
                 </div>
-                <div className="bg-white rounded-lg border border-border overflow-hidden">
-                  <div className="bg-navy/5 border-b border-border px-4 py-3">
-                    <span className="font-oswald text-navy text-sm tracking-wide">Статистика за апрель 2026</span>
-                  </div>
-                  <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {[
-                      { label: "Выдано приказов", value: "7" },
-                      { label: "Поощрений", value: "3" },
-                      { label: "Взысканий", value: "1" },
-                      { label: "Рапортов", value: "18" },
-                    ].map((s) => (
-                      <div key={s.label} className="text-center">
-                        <div className="font-oswald text-2xl text-navy font-bold">{s.value}</div>
-                        <div className="text-xs text-muted-foreground font-ibm mt-0.5">{s.label}</div>
+
+                {/* TAB: EMPLOYEES */}
+                {mgmtTab === "employees" && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-oswald text-navy text-sm tracking-wide">Всего сотрудников: {employees.length}</span>
+                      <button onClick={() => { setEditEmp(null); setEmpForm(emptyEmployee); setEmpFormOpen(true); }} className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                        <Icon name="UserPlus" size={15} />Принять
+                      </button>
+                    </div>
+                    {employees.length === 0 ? (
+                      <div className="bg-white rounded-lg border border-border p-8 text-center">
+                        <Icon name="Users" size={32} className="mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground font-ibm text-sm">Список пуст. Добавьте первого сотрудника.</p>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="bg-white rounded-lg border border-border overflow-hidden">
+                        <table className="w-full text-sm font-ibm">
+                          <thead>
+                            <tr className="bg-navy/5 border-b border-border">
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Сотрудник</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide hidden sm:table-cell">Подразделение</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide hidden sm:table-cell">Жетон</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Статус</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Действия</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {employees.map(emp => (
+                              <tr key={emp.id} className="hover:bg-muted/40 transition-colors">
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-foreground">{emp.name}</div>
+                                  <div className="text-xs text-muted-foreground">{emp.rank}</div>
+                                </td>
+                                <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{emp.dept || "—"}</td>
+                                <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell font-oswald text-xs">{emp.badge || "—"}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`text-xs px-2 py-1 rounded font-ibm ${emp.status === "online" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                    {emp.status === "online" ? "На службе" : "Не в сети"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-2">
+                                    <button onClick={() => { setEditEmp(emp); setEmpForm({ rank: emp.rank, name: emp.name, dept: emp.dept, badge: emp.badge, status: emp.status }); setEmpFormOpen(true); }} className="text-muted-foreground hover:text-navy transition-colors" title="Редактировать"><Icon name="Pencil" size={14} /></button>
+                                    <button onClick={() => setFireConfirm(emp)} className="text-muted-foreground hover:text-red-500 transition-colors" title="Уволить"><Icon name="UserMinus" size={14} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* TAB: ORDERS */}
+                {mgmtTab === "orders" && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-oswald text-navy text-sm tracking-wide">Приказов: {orders.length} · Действующих: {activeOrders}</span>
+                      <button onClick={() => { setEditOrder(null); setOrderForm(emptyOrder); setOrderFormOpen(true); }} className="flex items-center gap-2 bg-navy hover:bg-navy-light text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                        <Icon name="Plus" size={15} />Создать
+                      </button>
+                    </div>
+                    {orders.length === 0 ? (
+                      <div className="bg-white rounded-lg border border-border p-8 text-center">
+                        <Icon name="FileText" size={32} className="mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground font-ibm text-sm">Приказов пока нет.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-lg border border-border overflow-hidden">
+                        <table className="w-full text-sm font-ibm">
+                          <thead>
+                            <tr className="bg-navy/5 border-b border-border">
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Номер</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Наименование</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide hidden sm:table-cell">Статус</th>
+                              <th className="text-left px-4 py-3 font-oswald text-navy text-xs tracking-wide">Действия</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {orders.map(order => (
+                              <tr key={order.id} className="hover:bg-muted/40 transition-colors">
+                                <td className="px-4 py-3 font-oswald text-navy font-semibold">{order.id}</td>
+                                <td className="px-4 py-3 text-foreground">
+                                  <div className="flex items-center gap-2">
+                                    {order.priority === "high" && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Срочный</span>}
+                                    {order.title}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{order.date}</div>
+                                </td>
+                                <td className="px-4 py-3 hidden sm:table-cell">
+                                  <span className={`text-xs px-2 py-1 rounded ${order.status === "Действующий" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{order.status}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-2">
+                                    <button onClick={() => { setEditOrder(order); setOrderForm({ date: order.date, title: order.title, status: order.status, priority: order.priority }); setOrderFormOpen(true); }} className="text-muted-foreground hover:text-navy transition-colors" title="Редактировать"><Icon name="Pencil" size={14} /></button>
+                                    <button onClick={() => setDeleteOrderConfirm(order)} className="text-muted-foreground hover:text-red-500 transition-colors" title="Удалить"><Icon name="Trash2" size={14} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB: REPRIMANDS */}
+                {mgmtTab === "reprimands" && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-oswald text-navy text-sm tracking-wide">Взысканий: {reprimands.length}</span>
+                      <button onClick={() => setRepFormOpen(true)} disabled={employees.length === 0} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-medium px-4 py-2 text-sm tracking-wide transition-colors rounded">
+                        <Icon name="AlertTriangle" size={15} />Выдать взыскание
+                      </button>
+                    </div>
+                    {employees.length === 0 && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm font-ibm text-orange-700">Сначала добавьте сотрудников во вкладке «Сотрудники».</div>
+                    )}
+                    {reprimands.length === 0 ? (
+                      <div className="bg-white rounded-lg border border-border p-8 text-center">
+                        <Icon name="CheckCircle" size={32} className="mx-auto text-green-400 mb-2" />
+                        <p className="text-muted-foreground font-ibm text-sm">Взысканий нет. Личный состав ведёт себя примерно.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {reprimands.map(r => (
+                          <div key={r.id} className="bg-white rounded-lg border border-orange-200 p-4 flex items-start gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                              <Icon name="AlertTriangle" size={16} className="text-orange-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-oswald text-navy font-semibold text-sm">{getEmpName(r.empId)}</span>
+                                <span className={`text-[11px] px-2 py-0.5 rounded font-ibm ${r.type === "Выговор" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>{r.type}</span>
+                                <span className="text-xs text-muted-foreground font-ibm">{r.date}</span>
+                              </div>
+                              <p className="text-sm font-ibm text-foreground mt-1">{r.reason}</p>
+                              {r.issuedBy && <p className="text-xs text-muted-foreground font-ibm mt-0.5">Выдал: {r.issuedBy}</p>}
+                            </div>
+                            <button onClick={() => setDeleteRepConfirm(r)} className="text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0" title="Снять взыскание"><Icon name="Trash2" size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* REPRIMAND FORM */}
+                {repFormOpen && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setRepFormOpen(false)}>
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+                      <div className="bg-orange-500 px-5 py-4 flex items-center justify-between">
+                        <span className="font-oswald text-white tracking-wide flex items-center gap-2">
+                          <Icon name="AlertTriangle" size={16} />Выдать взыскание
+                        </span>
+                        <button onClick={() => setRepFormOpen(false)} className="text-white/70 hover:text-white"><Icon name="X" size={18} /></button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Сотрудник *</label>
+                          <select value={repForm.empId} onChange={e => setRepForm(p => ({ ...p, empId: Number(e.target.value) }))} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all bg-white">
+                            <option value={0}>— Выбрать —</option>
+                            {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.rank})</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Тип взыскания</label>
+                          <div className="flex gap-2">
+                            {["Выговор", "Устный выговор", "Строгий выговор"].map(t => (
+                              <button key={t} onClick={() => setRepForm(p => ({ ...p, type: t }))} className={`flex-1 py-2 rounded text-xs font-oswald tracking-wide border transition-colors ${repForm.type === t ? "bg-orange-500 text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-300"}`}>{t}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Основание *</label>
+                          <textarea value={repForm.reason} onChange={e => setRepForm(p => ({ ...p, reason: e.target.value }))} placeholder="Нарушение служебной дисциплины..." rows={3} className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all resize-none" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-oswald text-navy/70 tracking-wide uppercase block mb-1">Выдал (ваш ник)</label>
+                          <input value={repForm.issuedBy} onChange={e => setRepForm(p => ({ ...p, issuedBy: e.target.value }))} placeholder="Ethan_Santoro" className="w-full border border-border rounded px-3 py-2 text-sm font-ibm outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 transition-all" />
+                        </div>
+                        <button disabled={!repForm.empId || !repForm.reason.trim()} onClick={saveReprimand} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-1">
+                          Выдать взыскание
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* DELETE REP CONFIRM */}
+                {deleteRepConfirm && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setDeleteRepConfirm(null)}>
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up p-6" onClick={e => e.stopPropagation()}>
+                      <h3 className="font-oswald text-navy text-lg mb-2">Снять взыскание?</h3>
+                      <p className="text-muted-foreground text-sm font-ibm mb-5">Взыскание «{deleteRepConfirm.type}» для {getEmpName(deleteRepConfirm.empId)} будет удалено.</p>
+                      <div className="flex gap-3">
+                        <button onClick={() => setDeleteRepConfirm(null)} className="flex-1 border border-border rounded py-2.5 text-sm font-oswald text-muted-foreground hover:text-navy transition-colors">Отмена</button>
+                        <button onClick={() => { setReprimands(p => p.filter(r => r.id !== deleteRepConfirm.id)); setDeleteRepConfirm(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded py-2.5 text-sm font-oswald transition-colors">Снять</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -652,60 +862,52 @@ export default function Index() {
                   <Icon name="User" size={36} className="text-navy" />
                 </div>
                 <h3 className="font-oswald text-navy font-semibold text-lg">
-                  {role === "commander" ? "Александр Кравченко" : "Сотрудник ГУВД"}
+                  {role === "commander" ? "Руководящий состав" : "Сотрудник ГУВД"}
                 </h3>
-                <div className="text-xs text-muted-foreground font-ibm mt-1">
-                  {role === "commander" ? "Полковник · Командование" : "Лейтенант · Патрульная служба"}
-                </div>
                 <div className="mt-3 inline-flex items-center gap-1.5 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-ibm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  На службе
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />На службе
                 </div>
                 {role === "commander" && (
-                  <div className="mt-2 block text-xs bg-yellow-100 text-amber-800 px-3 py-1.5 rounded-full font-oswald tracking-wide">
-                    ★ Руководящий состав
-                  </div>
+                  <div className="mt-2 block text-xs bg-yellow-100 text-amber-800 px-3 py-1.5 rounded-full font-oswald tracking-wide">★ Командование</div>
                 )}
               </div>
               <div className="sm:col-span-2 space-y-4">
                 <div className="bg-white rounded-lg border border-border overflow-hidden">
                   <div className="bg-navy/5 border-b border-border px-4 py-3">
-                    <span className="font-oswald text-navy text-sm tracking-wide">Данные сотрудника</span>
+                    <span className="font-oswald text-navy text-sm tracking-wide">Информация</span>
                   </div>
                   <div className="divide-y divide-border">
                     {[
-                      { label: "Жетон", value: role === "commander" ? "ГУ-001" : "ГУ-044" },
-                      { label: "Звание", value: role === "commander" ? "Полковник" : "Лейтенант" },
-                      { label: "Отдел", value: role === "commander" ? "Командование" : "Патрульная служба" },
-                      { label: "Дата зачисления", value: "01.03.2026" },
                       { label: "Уровень доступа", value: role === "commander" ? "Руководящий состав" : "Рядовой состав" },
+                      { label: "Сотрудников в системе", value: String(employees.length) },
+                      { label: "Приказов", value: String(orders.length) },
+                      { label: "Взысканий", value: String(reprimands.length) },
                     ].map((row) => (
                       <div key={row.label} className="flex px-4 py-3">
-                        <span className="text-xs text-muted-foreground font-ibm w-36 flex-shrink-0">{row.label}</span>
+                        <span className="text-xs text-muted-foreground font-ibm w-44 flex-shrink-0">{row.label}</span>
                         <span className="text-sm font-ibm text-foreground font-medium">{row.value}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="bg-white rounded-lg border border-border overflow-hidden">
-                  <div className="bg-navy/5 border-b border-border px-4 py-3">
-                    <span className="font-oswald text-navy text-sm tracking-wide">Мои задачи</span>
+                {role === "commander" && (
+                  <div className="bg-white rounded-lg border border-border overflow-hidden">
+                    <div className="bg-navy/5 border-b border-border px-4 py-3">
+                      <span className="font-oswald text-navy text-sm tracking-wide">Быстрые действия</span>
+                    </div>
+                    <div className="p-4 flex flex-wrap gap-2">
+                      <button onClick={() => { setMgmtTab("employees"); setSection("management"); }} className="flex items-center gap-2 bg-navy/10 hover:bg-navy/20 text-navy text-xs font-oswald tracking-wide px-3 py-2 rounded transition-colors">
+                        <Icon name="UserPlus" size={13} />Принять сотрудника
+                      </button>
+                      <button onClick={() => { setEditOrder(null); setOrderForm(emptyOrder); setOrderFormOpen(true); setSection("orders"); }} className="flex items-center gap-2 bg-navy/10 hover:bg-navy/20 text-navy text-xs font-oswald tracking-wide px-3 py-2 rounded transition-colors">
+                        <Icon name="Plus" size={13} />Создать приказ
+                      </button>
+                      <button onClick={() => { setMgmtTab("reprimands"); setSection("management"); }} className="flex items-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-oswald tracking-wide px-3 py-2 rounded transition-colors">
+                        <Icon name="AlertTriangle" size={13} />Выдать взыскание
+                      </button>
+                    </div>
                   </div>
-                  <div className="p-4 space-y-2">
-                    {[
-                      { task: "Ознакомиться с приказом №147", done: false },
-                      { task: "Сдать рапорт за дежурство 15.04", done: true },
-                      { task: "Пройти плановый инструктаж", done: false },
-                    ].map((t) => (
-                      <div key={t.task} className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${t.done ? "bg-navy border-navy" : "border-muted-foreground"}`}>
-                          {t.done && <Icon name="Check" size={10} className="text-white" />}
-                        </div>
-                        <span className={`text-sm font-ibm ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>{t.task}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -713,7 +915,6 @@ export default function Index() {
 
       </main>
 
-      {/* Footer */}
       <footer className="bg-navy mt-auto py-5 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-white/40 text-xs font-ibm">
           <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -721,19 +922,11 @@ export default function Index() {
             <span className="hidden sm:block text-white/20">·</span>
             <span className="flex items-center gap-1.5">
               Разработчик:&nbsp;
-              <a
-                href="https://vk.com/id1089780734"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/60 hover:text-gold transition-colors underline-offset-2 hover:underline"
-              >
-                Ethan_Santoro
-              </a>
+              <a href="https://vk.com/id1089780734" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-gold transition-colors underline-offset-2 hover:underline">Ethan_Santoro</a>
             </span>
           </div>
           <span className="flex items-center gap-1.5">
-            <Icon name="Shield" size={12} />
-            Официальный внутренний портал
+            <Icon name="Shield" size={12} />Официальный внутренний портал
           </span>
         </div>
       </footer>
@@ -741,15 +934,13 @@ export default function Index() {
       {/* Login Modal */}
       {loginOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setLoginOpen(false)}>
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm animate-slide-up overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="bg-navy px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img src={CREST_URL} alt="Герб" className="w-8 h-8 rounded-full border border-gold object-cover" />
                 <span className="font-oswald text-white tracking-wide">Вход в систему</span>
               </div>
-              <button onClick={() => setLoginOpen(false)} className="text-white/60 hover:text-white transition-colors">
-                <Icon name="X" size={18} />
-              </button>
+              <button onClick={() => setLoginOpen(false)} className="text-white/60 hover:text-white transition-colors"><Icon name="X" size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -767,9 +958,7 @@ export default function Index() {
                 <label className="text-xs font-oswald text-navy tracking-wide uppercase block mb-2">Пароль</label>
                 <input type="password" placeholder="••••••••" className="w-full border border-border rounded px-3 py-2.5 text-sm font-ibm outline-none focus:border-navy/50 focus:ring-1 focus:ring-navy/20 transition-all" />
               </div>
-              <button onClick={handleLogin} className="w-full bg-navy hover:bg-navy-light text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-2">
-                Войти в портал
-              </button>
+              <button onClick={handleLogin} className="w-full bg-navy hover:bg-navy-light text-white font-oswald font-semibold py-3 tracking-wide transition-colors rounded mt-2">Войти в портал</button>
               <p className="text-[11px] text-muted-foreground font-ibm text-center leading-relaxed">
                 Доступ только для действующих сотрудников ГУВД.<br />При проблемах — обратитесь к командованию.
               </p>
